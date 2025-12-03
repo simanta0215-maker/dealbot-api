@@ -1,5 +1,5 @@
-const scrapeSlickdeals = require("./slickdeals");
 const scrapeRedditDeals = require("./reddit");
+const scrapeSlickdeals = require("./slickdeals");
 const scrapeGoogleTrends = require("./googleTrends");
 const scrapeWalmart = require("./walmart");
 const scrapeAmazon = require("./amazon");
@@ -8,39 +8,40 @@ const scrapeTomsGuide = require("./tomsguide");
 const scrapeBestBuy = require("./bestbuy");
 const scrapeNewegg = require("./newegg");
 
+async function safe(fn, label) {
+    try {
+        const data = await fn();
+        console.log(` ${label} returned ${data.length} results`);
+        return data;
+    } catch (err) {
+        console.error(` ${label} FAILED:`, err.message);
+        return [];
+    }
+}
+
 async function getAllDeals() {
-  const results = await Promise.allSettled([
-    scrapeSlickdeals(),
-    scrapeRedditDeals(),
-    scrapeGoogleTrends(),
-    scrapeWalmart(),
-    scrapeAmazon(),
-    scrapeTechRadar(),
-    scrapeTomsGuide(),
-    scrapeBestBuy(),
-    scrapeNewegg()
-  ]);
 
-  let combined = [];
-  for (const r of results) {
-    if (r.status === "fulfilled" && Array.isArray(r.value)) {
-      combined = combined.concat(r.value);
-    }
-  }
+    const results = await Promise.all([
+        safe(scrapeRedditDeals, "Reddit"),
+        safe(scrapeSlickdeals, "Slickdeals"),
+        safe(scrapeGoogleTrends, "Google Trends"),
+        safe(scrapeWalmart, "Walmart"),
+        safe(scrapeAmazon, "Amazon"),
+        safe(scrapeTechRadar, "TechRadar"),
+        safe(scrapeTomsGuide, "TomsGuide"),
+        safe(scrapeBestBuy, "BestBuy"),
+        safe(scrapeNewegg, "Newegg")
+    ]);
 
-  combined.forEach(d => {
-    if (d.votes) d._score = d.votes;
-    else if (d.searches) {
-      const num = parseInt(String(d.searches).replace(/[^0-9]/g, "")) || 0;
-      d._score = num;
-    } else {
-      d._score = 0;
-    }
-  });
+    const combined = results.flat();
 
-  combined.sort((a, b) => (b._score || 0) - (a._score || 0));
+    combined.sort((a, b) => {
+        const aScore = parseInt(a.score || a.votes || a.searches || 0);
+        const bScore = parseInt(b.score || b.votes || b.searches || 0);
+        return bScore - aScore;
+    });
 
-  return combined.slice(0, 40);
+    return combined.slice(0, 40);
 }
 
 module.exports = getAllDeals;
