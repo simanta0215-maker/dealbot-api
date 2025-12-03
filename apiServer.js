@@ -1,13 +1,20 @@
 const express = require("express");
 const cors = require("cors");
+const routes = require("./routes");
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Import our routes
-const routes = require("./routes");
+// health check
+app.get("/", (req, res) => {
+  res.send("DealBot API is running");
+});
+
+// use our routes (like /trending)
 app.use("/", routes);
 
-// Start server
-app.listen(3000, () => console.log("DealBot API running on port 3000"));
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`DealBot API running on port ${PORT}`);
+});
